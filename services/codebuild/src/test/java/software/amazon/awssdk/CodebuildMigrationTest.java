@@ -39,7 +39,7 @@ public class CodebuildMigrationTest {
                                                .region(Region.US_WEST_2)
                                                .build();
 
-    String testProject = "aws-sdk-java-v2-IntegrationTest-JDK21";
+    String testProject = "<change-me>";
 
     @Test
     void get() {
