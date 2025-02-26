@@ -17,7 +17,6 @@ package software.amazon.awssdk.services.sqs.internal.batchmanager;
 
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -26,14 +25,18 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.stream.Collectors;
 import software.amazon.awssdk.annotations.SdkInternalApi;
 
+/**
+ * Stores and manages batch requests for a specific batch key.
+ *
+ * @param <RequestT> The type of request being batched
+ * @param <ResponseT> The type of response for each request
+ */
 @SdkInternalApi
 public final class RequestBatchBuffer<RequestT, ResponseT> {
-    private final Object flushLock = new Object();
+    private final Object lock = new Object();
 
     private final Map<String, BatchingExecutionContext<RequestT, ResponseT>> idToBatchContext;
-    private final int maxBatchItems;
     private final int maxBufferSize;
-    private final int maxBatchSizeInBytes;
     /**
      * Batch entries in a batch request require a unique ID so nextId keeps track of the ID to assign to the next
      * BatchingExecutionContext. For simplicity, the ID is just an integer that is incremented everytime a new request and
@@ -48,79 +51,33 @@ public final class RequestBatchBuffer<RequestT, ResponseT> {
     private int nextBatchEntry;
 
     /**
-     * The scheduled flush tasks associated with this batchBuffer.
+     * The scheduled flush task associated with this batchBuffer.
      */
     private ScheduledFuture<?> scheduledFlush;
 
-    public RequestBatchBuffer(ScheduledFuture<?> scheduledFlush,
-                              int maxBatchItems, int maxBatchSizeInBytes, int maxBufferSize) {
+    /**
+     * Creates a new request batch buffer.
+     *
+     * @param scheduledFlush The scheduled flush task
+     * @param maxBufferSize Maximum number of entries this buffer can hold
+     */
+    public RequestBatchBuffer(ScheduledFuture<?> scheduledFlush, int maxBufferSize) {
         this.idToBatchContext = new ConcurrentHashMap<>();
         this.nextId = 0;
         this.nextBatchEntry = 0;
         this.scheduledFlush = scheduledFlush;
-        this.maxBatchItems = maxBatchItems;
         this.maxBufferSize = maxBufferSize;
-        this.maxBatchSizeInBytes = maxBatchSizeInBytes;
     }
 
-    public Map<String, BatchingExecutionContext<RequestT, ResponseT>> flushableRequests() {
-        synchronized (flushLock) {
-            return (isByteSizeThresholdCrossed(0) || isMaxBatchSizeLimitReached())
-                   ? extractFlushedEntries(maxBatchItems)
-                   : Collections.emptyMap();
-        }
-    }
-
-
-    private boolean isMaxBatchSizeLimitReached() {
-        return idToBatchContext.size() >= maxBatchItems;
-    }
-
-    public Map<String, BatchingExecutionContext<RequestT, ResponseT>> flushableRequestsOnByteLimitBeforeAdd(RequestT request) {
-        synchronized (flushLock) {
-            if (maxBatchSizeInBytes > 0 && !idToBatchContext.isEmpty()) {
-                int incomingRequestBytes = RequestPayloadCalculator.calculateMessageSize(request).orElse(0);
-                if (isByteSizeThresholdCrossed(incomingRequestBytes)) {
-                    return extractFlushedEntries(maxBatchItems);
-                }
-            }
-            return Collections.emptyMap();
-        }
-    }
-
-    private boolean isByteSizeThresholdCrossed(int incomingRequestBytes) {
-        if (maxBatchSizeInBytes < 0) {
-            return false;
-        }
-        int totalPayloadSize = idToBatchContext.values().stream()
-                                               .map(BatchingExecutionContext::responsePayloadByteSize)
-                                               .mapToInt(opt -> opt.orElse(0))
-                                               .sum() + incomingRequestBytes;
-        return totalPayloadSize > maxBatchSizeInBytes;
-    }
-
-    public Map<String, BatchingExecutionContext<RequestT, ResponseT>> flushableScheduledRequests(int maxBatchItems) {
-        synchronized (flushLock) {
-            if (!idToBatchContext.isEmpty()) {
-                return extractFlushedEntries(maxBatchItems);
-            }
-            return Collections.emptyMap();
-        }
-    }
-
-    private Map<String, BatchingExecutionContext<RequestT, ResponseT>> extractFlushedEntries(int maxBatchItems) {
-        LinkedHashMap<String, BatchingExecutionContext<RequestT, ResponseT>> requestEntries = new LinkedHashMap<>();
-        String nextEntry;
-        while (requestEntries.size() < maxBatchItems && hasNextBatchEntry()) {
-            nextEntry = nextBatchEntry();
-            requestEntries.put(nextEntry, idToBatchContext.get(nextEntry));
-            idToBatchContext.remove(nextEntry);
-        }
-        return requestEntries;
-    }
-
+    /**
+     * Adds a request and its response future to the buffer.
+     *
+     * @param request The request to add
+     * @param response The future that will receive the response
+     * @throws IllegalStateException if the buffer is full
+     */
     public void put(RequestT request, CompletableFuture<ResponseT> response) {
-        synchronized (this) {
+        synchronized (lock) {
             if (idToBatchContext.size() == maxBufferSize) {
                 throw new IllegalStateException("Reached MaxBufferSize of: " + maxBufferSize);
             }
@@ -130,6 +87,55 @@ public final class RequestBatchBuffer<RequestT, ResponseT> {
             }
             String id = Integer.toString(nextId++);
             idToBatchContext.put(id, new BatchingExecutionContext<>(request, response));
+        }
+    }
+
+    /**
+     * Gets the current number of entries in the buffer.
+     *
+     * @return The number of entries
+     */
+    public int size() {
+        return idToBatchContext.size();
+    }
+
+    /**
+     * Checks if the buffer is empty.
+     *
+     * @return true if the buffer contains no entries
+     */
+    public boolean isEmpty() {
+        return idToBatchContext.isEmpty();
+    }
+
+    /**
+     * Gets the total size in bytes of all requests in the buffer.
+     *
+     * @return The total size in bytes
+     */
+    public int getCurrentBatchSizeInBytes() {
+        return idToBatchContext.values().stream()
+                               .map(BatchingExecutionContext::responsePayloadByteSize)
+                               .mapToInt(opt -> opt.orElse(0))
+                               .sum();
+    }
+
+    /**
+     * Extracts a specified number of entries from the buffer.
+     *
+     * @param maxEntries Maximum number of entries to extract
+     * @return Map of extracted entries
+     */
+    public Map<String, BatchingExecutionContext<RequestT, ResponseT>> extractEntries(int maxEntries) {
+        synchronized (lock) {
+            LinkedHashMap<String, BatchingExecutionContext<RequestT, ResponseT>> extractedEntries = new LinkedHashMap<>();
+            String nextEntry;
+            while (extractedEntries.size() < maxEntries && hasNextBatchEntry()) {
+                nextEntry = nextBatchEntry();
+                extractedEntries.put(nextEntry, idToBatchContext.get(nextEntry));
+                idToBatchContext.remove(nextEntry);
+            }
+            return extractedEntries;
         }
     }
 
@@ -144,14 +150,29 @@ public final class RequestBatchBuffer<RequestT, ResponseT> {
         return Integer.toString(nextBatchEntry++);
     }
 
+    /**
+     * Updates the scheduled flush task for this buffer.
+     *
+     * @param scheduledFlush The new scheduled flush task
+     */
     public void putScheduledFlush(ScheduledFuture<?> scheduledFlush) {
         this.scheduledFlush = scheduledFlush;
     }
 
+    /**
+     * Cancels the scheduled flush task for this buffer.
+     */
     public void cancelScheduledFlush() {
-        scheduledFlush.cancel(false);
+        if (scheduledFlush != null) {
+            scheduledFlush.cancel(false);
+        }
     }
 
+    /**
+     * Gets all response futures in this buffer.
+     *
+     * @return Collection of response futures
+     */
     public Collection<CompletableFuture<ResponseT>> responses() {
         return idToBatchContext.values()
                                .stream()
@@ -159,6 +180,9 @@ public final class RequestBatchBuffer<RequestT, ResponseT> {
                                .collect(Collectors.toList());
     }
 
+    /**
+     * Clears all entries from this buffer.
+     */
     public void clear() {
         idToBatchContext.clear();
     }
