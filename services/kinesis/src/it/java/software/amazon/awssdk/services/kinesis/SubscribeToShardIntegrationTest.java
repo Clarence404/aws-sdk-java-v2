@@ -50,6 +50,7 @@ import software.amazon.awssdk.services.kinesis.model.SubscribeToShardEventStream
 import software.amazon.awssdk.services.kinesis.model.SubscribeToShardResponse;
 import software.amazon.awssdk.services.kinesis.model.SubscribeToShardResponseHandler;
 import software.amazon.awssdk.testutils.Waiter;
+import software.amazon.awssdk.utils.Logger;
 
 public class SubscribeToShardIntegrationTest extends AbstractTestCase {
 
@@ -58,26 +59,40 @@ public class SubscribeToShardIntegrationTest extends AbstractTestCase {
     private static final String CONSUMER_NAME = "subscribe-to-shard-consumer";
     private static String consumerArn;
     private static String shardId;
+    private static final Logger logger = Logger.loggerFor(SubscribeToShardIntegrationTest.class);
 
     @BeforeAll
     public static void setup() throws InterruptedException {
         streamName = "subscribe-to-shard-integ-test-" + System.currentTimeMillis();
+        logger.info(() -> "Starting test setup with stream name: " + streamName);
 
         asyncClient.createStream(r -> r.streamName(streamName)
                                        .shardCount(1)).join();
+        logger.info(() ->"Created stream, waiting for active status");
+
         waitForStreamToBeActive();
+
+        logger.info(() ->"Stream is now active");
         String streamARN = asyncClient.describeStream(r -> r.streamName(streamName)).join()
                                       .streamDescription()
                                       .streamARN();
 
+        logger.info(() -> "Retrieved stream ARN: " + streamARN);
+
         shardId = asyncClient.listShards(r -> r.streamName(streamName))
                              .join()
                              .shards().get(0).shardId();
+
+        logger.info(() -> "Retrieved shard ID: " + shardId);
         consumerArn = asyncClient.registerStreamConsumer(r -> r.streamARN(streamARN)
                                                                .consumerName(CONSUMER_NAME)).join()
                                  .consumer()
                                  .consumerARN();
+
+        logger.info(() -> "Registered consumer with ARN: " + consumerArn);
         waitForConsumerToBeActive();
+
+        logger.info(() -> "Consumer is now active");
     }
 
     @AfterAll
@@ -91,6 +106,7 @@ public class SubscribeToShardIntegrationTest extends AbstractTestCase {
         // We want sufficiently large records (relative to the initial window
         // size we're choosing) so the client has to send multiple
         // WINDOW_UPDATEs to receive them
+        logger.info(() -> "Starting subscribeToShard_smallWindow_doesNotTimeOutReads test");
         for (int i = 0; i < 16; ++i) {
             putRecord(64 * 1024);
         }
@@ -104,6 +120,7 @@ public class SubscribeToShardIntegrationTest extends AbstractTestCase {
                                                                       .build();
 
         try {
+            logger.info(() -> "Subscribing to shard: " + shardId);
             smallWindowAsyncClient.subscribeToShard(r -> r.consumerARN(consumerArn)
                                                           .shardId(shardId)
                                                           .startingPosition(s -> s.type(ShardIteratorType.TRIM_HORIZON)),
@@ -120,6 +137,7 @@ public class SubscribeToShardIntegrationTest extends AbstractTestCase {
 
     @Test
     public void subscribeToShard_ReceivesAllData() {
+        logger.info(() -> "Starting subscribeToShard_ReceivesAllData test");
         List<SdkBytes> producedData = new ArrayList<>();
         ScheduledExecutorService producer = Executors.newScheduledThreadPool(1);
         // Delay it a bit to allow us to subscribe first
@@ -131,6 +149,7 @@ public class SubscribeToShardIntegrationTest extends AbstractTestCase {
             s.records().stream()
              .map(Record::data)
              .collect(Collectors.toList()));
+        logger.info(() -> "Subscribing to shard: " + shardId);
         asyncClient.subscribeToShard(r -> r.consumerARN(consumerArn)
                                            .shardId(shardId)
                                            .startingPosition(s -> s.type(ShardIteratorType.LATEST)),
@@ -148,10 +167,13 @@ public class SubscribeToShardIntegrationTest extends AbstractTestCase {
 
     @Test
     public void limitedSubscription_callCompleteMethodOfSubs_whenLimitsReached() {
+        logger.info(() -> "Starting limitedSubscription_callCompleteMethodOfSubs_whenLimitsReached test");
+
         AtomicBoolean onCompleteSubsMethodsCalled = new AtomicBoolean(false);
         AtomicBoolean completeMethodOfHandlerCalled = new AtomicBoolean(false);
         AtomicBoolean errorOccurred = new AtomicBoolean(false);
         List<SubscribeToShardEventStream> events = new ArrayList<>();
+        logger.info(() -> "Subscribing to shard: " + shardId);
         asyncClient.subscribeToShard(r -> r.consumerARN(consumerArn)
                                            .shardId(shardId)
                                            .startingPosition(s -> s.type(ShardIteratorType.LATEST)),
@@ -214,10 +236,13 @@ public class SubscribeToShardIntegrationTest extends AbstractTestCase {
 
     @Test
     public void cancelledSubscription_doesNotCallCompleteMethodOfHandler() {
+        logger.info(() -> "Starting cancelledSubscription_doesNotCallCompleteMethodOfHandler test");
+
         AtomicBoolean onCompleteSubsMethodsCalled = new AtomicBoolean(false);
         AtomicBoolean completeMethodOfHandlerCalled = new AtomicBoolean(false);
         AtomicBoolean errorOccurred = new AtomicBoolean(false);
         List<SubscribeToShardEventStream> events = new ArrayList<>();
+        logger.info(() -> "Subscribing to shard: " + shardId);
         asyncClient.subscribeToShard(r -> r.consumerARN(consumerArn)
                                            .shardId(shardId)
                                            .startingPosition(s -> s.type(ShardIteratorType.LATEST)),
