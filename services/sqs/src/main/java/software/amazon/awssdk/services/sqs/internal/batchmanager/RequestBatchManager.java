@@ -17,7 +17,6 @@ package software.amazon.awssdk.services.sqs.internal.batchmanager;
 
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -58,32 +57,23 @@ public abstract class RequestBatchManager<RequestT, ResponseT, BatchResponseT> {
     private final Set<CompletableFuture<BatchResponseT>> pendingBatchResponses;
     private final Set<CompletableFuture<ResponseT>> pendingResponses;
 
-    /**
-     * Creates a new request batch manager.
-     *
-     * @param overrideConfiguration The batch configuration
-     * @param scheduledExecutor The executor for scheduled tasks
-     */
+
     protected RequestBatchManager(RequestBatchConfiguration overrideConfiguration,
                                   ScheduledExecutorService scheduledExecutor) {
         batchConfiguration = overrideConfiguration;
         this.maxBatchItems = batchConfiguration.maxBatchItems();
         this.sendRequestFrequency = batchConfiguration.sendRequestFrequency();
         this.scheduledExecutor = Validate.notNull(scheduledExecutor, "Null scheduledExecutor");
-        pendingBatchResponses = Collections.newSetFromMap(new ConcurrentHashMap<>());
-        pendingResponses = Collections.newSetFromMap(new ConcurrentHashMap<>());
+        pendingBatchResponses = ConcurrentHashMap.newKeySet();
+        pendingResponses = ConcurrentHashMap.newKeySet();
         this.BatchingMap  = new BatchingMap <>(overrideConfiguration);
+
     }
 
-    /**
-     * Adds a request to be batched and returns a future for the response.
-     *
-     * @param request The request to batch
-     * @return A future that will complete with the response
-     */
     public CompletableFuture<ResponseT> batchRequest(RequestT request) {
         CompletableFuture<ResponseT> response = new CompletableFuture<>();
         pendingResponses.add(response);
+        response.whenComplete((r, t) -> pendingResponses.remove(response));
 
         try {
             String batchKey = getBatchKey(request);
@@ -120,30 +110,11 @@ public abstract class RequestBatchManager<RequestT, ResponseT, BatchResponseT> {
         return response;
     }
 
-    /**
-     * Sends a batch of requests to the service.
-     *
-     * @param identifiedRequests The requests to send, each with a unique ID
-     * @param batchKey The batch key for these requests
-     * @return A future that will complete with the batch response
-     */
     protected abstract CompletableFuture<BatchResponseT> batchAndSend(List<IdentifiableMessage<RequestT>> identifiedRequests,
                                                                       String batchKey);
 
-    /**
-     * Gets the batch key for a request.
-     *
-     * @param request The request
-     * @return The batch key
-     */
     protected abstract String getBatchKey(RequestT request);
 
-    /**
-     * Maps a batch response to individual responses or errors.
-     *
-     * @param batchResponse The batch response
-     * @return List of either successful responses or errors, each with a unique ID
-     */
     protected abstract List<Either<IdentifiableMessage<ResponseT>,
         IdentifiableMessage<Throwable>>> mapBatchResponse(BatchResponseT batchResponse);
 
@@ -162,10 +133,13 @@ public abstract class RequestBatchManager<RequestT, ResponseT, BatchResponseT> {
         requestsToFlush.forEach((contextId, batchExecutionContext) ->
                                     requestEntries.add(new IdentifiableMessage<>(contextId, batchExecutionContext.request())));
         if (!requestEntries.isEmpty()) {
-            CompletableFuture<BatchResponseT> pendingBatchingRequest = batchAndSend(requestEntries, batchKey)
-                .whenComplete((result, ex) -> handleAndCompleteResponses(result, ex, requestsToFlush));
-
+            CompletableFuture<BatchResponseT> pendingBatchingRequest = batchAndSend(requestEntries, batchKey);
             pendingBatchResponses.add(pendingBatchingRequest);
+
+            pendingBatchingRequest.whenComplete((result, ex) -> {
+                handleAndCompleteResponses(result, ex, requestsToFlush);
+                pendingBatchResponses.remove(pendingBatchingRequest);
+            });
         }
     }
 
@@ -202,9 +176,6 @@ public abstract class RequestBatchManager<RequestT, ResponseT, BatchResponseT> {
         }
     }
 
-    /**
-     * Closes this batch manager, flushing any pending requests and canceling any pending responses.
-     */
     public void close() {
         BatchingMap .forEach((batchKey, buffer) -> {
             BatchingMap .cancelScheduledFlush(batchKey);

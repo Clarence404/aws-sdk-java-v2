@@ -40,8 +40,8 @@ class RequestBatchBufferTest {
     private FlushPolicy<String, String> flushPolicy;
     private ScheduledFuture<?> scheduledFlush;
 
-    private static int maxBufferSize = 1000;
-    private static int maxBatchItems = 10;
+    private static final int maxBufferSize = 1000;
+    private static final int maxBatchItems = 10;
 
     @BeforeEach
     void setUp() {
