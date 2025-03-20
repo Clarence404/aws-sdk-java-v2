@@ -30,6 +30,7 @@ import software.amazon.awssdk.crt.io.StandardRetryOptions;
 import software.amazon.awssdk.crt.io.TlsCipherPreference;
 import software.amazon.awssdk.crt.io.TlsContext;
 import software.amazon.awssdk.crt.io.TlsContextOptions;
+import software.amazon.awssdk.crt.s3.S3ExpressCredentialsProviderFactory;
 import software.amazon.awssdk.identity.spi.AwsCredentialsIdentity;
 import software.amazon.awssdk.identity.spi.IdentityProvider;
 import software.amazon.awssdk.regions.providers.DefaultAwsRegionProviderChain;
@@ -64,8 +65,10 @@ public class S3NativeClientConfiguration implements SdkAutoCloseable {
     private final HttpMonitoringOptions httpMonitoringOptions;
     private final Boolean useEnvironmentVariableProxyOptionsValues;
     private final long maxNativeMemoryLimitInBytes;
+    private final S3ExpressCredentialsProviderFactory s3factory;
 
     public S3NativeClientConfiguration(Builder builder) {
+        this.s3factory = builder.S3ExpressCredentialsProviderFactory == null ? null : builder.S3ExpressCredentialsProviderFactory;
         this.signingRegion = builder.signingRegion == null ? DefaultAwsRegionProviderChain.builder().build().getRegion().id() :
                              builder.signingRegion;
         this.clientBootstrap = new ClientBootstrap(null, null);
@@ -193,6 +196,10 @@ public class S3NativeClientConfiguration implements SdkAutoCloseable {
         return readBufferSizeInBytes;
     }
 
+    public S3ExpressCredentialsProviderFactory s3factory() {
+        return s3factory;
+    }
+
     @Override
     public void close() {
         clientBootstrap.close();
@@ -214,8 +221,14 @@ public class S3NativeClientConfiguration implements SdkAutoCloseable {
         private StandardRetryOptions standardRetryOptions;
         private Long thresholdInBytes;
         private Long maxNativeMemoryLimitInBytes;
+        private S3ExpressCredentialsProviderFactory S3ExpressCredentialsProviderFactory;
 
         private Builder() {
+        }
+
+        public Builder S3ExpressCredentialsProviderFactory(S3ExpressCredentialsProviderFactory S3ExpressCredentialsProviderFactory) {
+            this.S3ExpressCredentialsProviderFactory = S3ExpressCredentialsProviderFactory;
+            return this;
         }
 
         public Builder signingRegion(String signingRegion) {

@@ -67,11 +67,13 @@ import software.amazon.awssdk.services.s3.crt.S3CrtHttpConfiguration;
 import software.amazon.awssdk.services.s3.crt.S3CrtRetryConfiguration;
 import software.amazon.awssdk.services.s3.internal.checksums.ChecksumsEnabledValidator;
 import software.amazon.awssdk.services.s3.internal.multipart.CopyObjectHelper;
+import software.amazon.awssdk.services.s3.internal.s3express.S3ExpressCredentialsProviderAdapter;
 import software.amazon.awssdk.services.s3.internal.s3express.S3ExpressUtils;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.CopyObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
+import software.amazon.awssdk.services.s3.s3express.S3ExpressSessionCredentials;
 import software.amazon.awssdk.utils.CollectionUtils;
 import software.amazon.awssdk.utils.Validate;
 
@@ -200,6 +202,10 @@ public final class DefaultS3CrtAsyncClient extends DelegatingS3AsyncClient imple
                 new StandardRetryOptions()
                     .withBackoffRetryOptions(new ExponentialBackoffRetryOptions()
                                                  .withMaxRetries(builder.retryConfiguration.numRetries())));
+        }
+        if (builder.credentialsProvider != null && S3ExpressSessionCredentials.class.isAssignableFrom(builder.credentialsProvider.identityType())) {
+            S3ExpressCredentialsProviderAdapter adapter = new S3ExpressCredentialsProviderAdapter((IdentityProvider<S3ExpressSessionCredentials>) builder.credentialsProvider);
+            nativeClientBuilder.S3ExpressCredentialsProviderFactory(adapter);
         }
         return S3CrtAsyncHttpClient.builder()
                                    .s3ClientConfiguration(nativeClientBuilder.build());

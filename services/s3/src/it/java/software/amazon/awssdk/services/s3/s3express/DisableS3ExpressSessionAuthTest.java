@@ -25,9 +25,12 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import software.amazon.awssdk.core.SdkSystemSetting;
+import software.amazon.awssdk.crt.Log;
+import software.amazon.awssdk.identity.spi.IdentityProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 
+import software.amazon.awssdk.services.s3.internal.s3express.TestS3ExpressIdentityProvider;
 import software.amazon.awssdk.testutils.EnvironmentVariableHelper;
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 
@@ -103,5 +106,28 @@ public class DisableS3ExpressSessionAuthTest extends S3ExpressIntegrationTestBas
         s3CrtAsync.listObjectsV2(r -> r.bucket(testBucket)).join();
         s3WireMock.verify(1,getRequestedFor(urlPathMatching(".*"))
             .withoutHeader("x-amz-s3session-token"));
+    }
+
+    @Test
+    void defaultS3CrtAsyncClient_NotUseS3ExpressAuth() {
+        // Log.initLoggingToStdout(Log.LogLevel.Debug);
+        // System.setProperty("aws.crt.memory.tracing", "2");
+        // System.setProperty("aws.crt.debugnative", "true");
+        S3ExpressSessionCredentials credentials = S3ExpressSessionCredentials.create("TEST-ACCESS-KEY", "TEST-SECRET"
+                                                                                                        + "-KEY", "TEST-SESSION-TOKEN");
+
+        IdentityProvider<S3ExpressSessionCredentials> mockCredentialsProvider = new TestS3ExpressIdentityProvider(credentials);
+
+
+        S3AsyncClient s3CrtAsyncTest = s3CrtAsyncClientBuilder(TEST_REGION)
+            .endpointOverride(URI.create("http://s3.localhost.localstack.cloud:" + s3WireMock.getPort()))
+            .disableS3ExpressSessionAuth(true)
+            .credentialsProvider(mockCredentialsProvider)
+            .build();
+
+        setupWireMockStub();
+        s3CrtAsyncTest.listObjectsV2(r -> r.bucket(testBucket)).join();
+        s3WireMock.verify(1,getRequestedFor(urlPathMatching(".*"))
+            .withHeader("x-amz-s3session-token", matching(".*")));
     }
 }
