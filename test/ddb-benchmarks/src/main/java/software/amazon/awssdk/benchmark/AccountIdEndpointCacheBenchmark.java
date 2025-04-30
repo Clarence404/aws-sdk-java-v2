@@ -78,7 +78,6 @@ public class AccountIdEndpointCacheBenchmark {
                                          : AccountIdEndpointMode.DISABLED;
 
             liveClient = DynamoDbClient.builder()
-                                       .region(Region.US_EAST_1)
                                        .accountIdEndpointMode(mode)
                                        .overrideConfiguration(c -> c.addMetricPublisher(
                                            CloudWatchMetricPublisher.builder()
