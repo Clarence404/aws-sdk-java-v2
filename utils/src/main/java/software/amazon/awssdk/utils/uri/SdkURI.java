@@ -18,6 +18,7 @@ package software.amazon.awssdk.utils.uri;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Objects;
+import org.slf4j.event.Level;
 import software.amazon.awssdk.annotations.SdkProtectedApi;
 import software.amazon.awssdk.utils.Logger;
 import software.amazon.awssdk.utils.cache.lru.LruCache;
@@ -39,11 +40,25 @@ public final class SdkURI {
                                                                     .maxSize(100)
                                                                     .build();
 
+    private boolean backdoorDisable = false;
+
+    public boolean backdoorDisable() {
+        return backdoorDisable;
+    }
+
+    public void setBackdoorDisable(boolean backdoorDisable) {
+        this.backdoorDisable = backdoorDisable;
+    }
+
+
     public static SdkURI getInstance() {
         return INSTANCE;
     }
 
     public URI create(String s) {
+        if (backdoorDisable) {
+            return URI.create(s);
+        }
         if (!isAccountIdUri(s)) {
             log.trace(() -> "skipping cache for uri " + s);
             return URI.create(s);
@@ -56,6 +71,10 @@ public final class SdkURI {
     }
 
     public URI newURI(String s) throws URISyntaxException {
+        if (backdoorDisable) {
+            return new URI(s);
+        }
+
         if (!isAccountIdUri(s)) {
             log.trace(() -> "skipping cache for uri " + s);
             return new URI(s);
@@ -79,6 +98,10 @@ public final class SdkURI {
                       String userInfo, String host, int port,
                       String path, String query, String fragment)
         throws URISyntaxException {
+        if (backdoorDisable) {
+            return new URI(scheme, userInfo, host, port, path, query, fragment);
+        }
+
         if (!isAccountIdUri(host)) {
             log.trace(() -> "skipping cache for host" + host);
             return new URI(scheme, userInfo, host, port, path, query, fragment);
@@ -94,6 +117,9 @@ public final class SdkURI {
                       String authority,
                       String path, String query, String fragment)
         throws URISyntaxException {
+        if (backdoorDisable) {
+            return new URI(scheme, authority, path, query, fragment);
+        }
         if (!isAccountIdUri(authority)) {
             log.trace(() -> "skipping cache for authority" + authority);
             return new URI(scheme, authority, path, query, fragment);
@@ -118,6 +144,9 @@ public final class SdkURI {
     }
 
     private void logCacheUsage(boolean containsKey, URI uri) {
+        if (!log.isLoggingLevelEnabled(Level.TRACE)) {
+            return;
+        }
         log.trace(() -> "URI cache size: " + cache.size());
         if (containsKey) {
             log.trace(() -> "Using cached uri for " + uri.toString());
