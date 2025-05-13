@@ -1,4 +1,347 @@
  #### 👋 _Looking for changelogs for older versions? You can find them in the [changelogs](./changelogs) directory._
+# __2.31.39__ __2025-05-08__
+## __AWS CodePipeline__
+  - ### Features
+    - Add support for Secrets Manager and Plaintext environment variable types in Commands action
+
+## __AWS Glue__
+  - ### Features
+    - This new release supports customizable RefreshInterval for all Saas ZETL integrations from 15 minutes to 6 days.
+
+## __AWS SDK for Java v2__
+  - ### Features
+    - Updated endpoint and partition metadata.
+
+## __AWS Single Sign-On Admin__
+  - ### Features
+    - Update PutPermissionBoundaryToPermissionSet API's managedPolicyArn pattern to allow valid ARN only. Update ApplicationName to allow white spaces.
+
+## __Amazon CloudFront__
+  - ### Features
+    - Doc-only update for CloudFront. These changes include customer-reported issues.
+
+## __Amazon Elastic Compute Cloud__
+  - ### Features
+    - Launching the feature to support ENA queues offering flexibility to support multiple queues per Enhanced Network Interface (ENI)
+
+## __Amazon GuardDuty__
+  - ### Features
+    - Updated description of a data structure.
+
+# __2.31.38__ __2025-05-07__
+## __AWS Elemental MediaLive__
+  - ### Features
+    - Enables Updating Anywhere Settings on a MediaLive Anywhere Channel.
+
+## __AWS SDK for Java v2__
+  - ### Features
+    - Updated endpoint and partition metadata.
+
+## __Amazon Elastic Compute Cloud__
+  - ### Features
+    - This release adds API support for Path Component Exclusion (Filter Out ARN) for Reachability Analyzer
+
+## __Amazon SageMaker Service__
+  - ### Features
+    - SageMaker AI Studio users can now migrate to SageMaker Unified Studio, which offers a unified web-based development experience that integrates AWS data, analytics, artificial intelligence (AI), and machine learning (ML) services, as well as additional tools and resource
+
+## __EC2 Image Builder__
+  - ### Features
+    - Updated the CreateImageRecipeRequest ParentImage description to include all valid values as updated with the SSM Parameters project.
+
+## __Synthetics__
+  - ### Features
+    - Add support to test a canary update by invoking a dry run of a canary. This behavior can be used via the new StartCanaryDryRun API along with new fields in UpdateCanary to apply dry run changes. Also includes changes in GetCanary and GetCanaryRuns to support retrieving dry run configurations.
+
+# __2.31.37__ __2025-05-06__
+## __AWS SDK for Java v2__
+  - ### Features
+    - Updated endpoint and partition metadata.
+
+  - ### Bugfixes
+    - Fix Smithy RPC v2 CBOR URI resolution allowing custom URIs.
+        - Contributed by: [@kstich](https://github.com/kstich)
+
+## __AWS Service Catalog__
+  - ### Features
+    - ServiceCatalog's APIs (DeleteServiceAction, DisassociateServiceActionFromProvisioningArtifact, AssociateServiceActionWithProvisioningArtifact) now throw InvalidParametersException when IdempotencyToken is invalid.
+
+## __Amazon Elastic Compute Cloud__
+  - ### Features
+    - This release adds support for Amazon EBS Provisioned Rate for Volume Initialization, which lets you specify a volume initialization rate to ensure that your EBS volumes are initialized in a predictable amount of time.
+
+## __Amazon Timestream Query__
+  - ### Features
+    - Add dualstack endpoints support and correct us-gov-west-1 FIPS endpoint.
+
+## __Amazon Timestream Write__
+  - ### Features
+    - Add dualstack endpoints support.
+
+## __Contributors__
+Special thanks to the following contributors to this release: 
+
+[@kstich](https://github.com/kstich)
+# __2.31.36__ __2025-05-05__
+## __AWS CRT-based S3 Client__
+  - ### Bugfixes
+    - Fixed "Connection pool shut down" error thrown when a default AWS CRT-based S3 client is created and closed per request. See [#5881](https://github.com/aws/aws-sdk-java-v2/issues/5881)
+
+## __AWS Device Farm__
+  - ### Features
+    - Add an optional parameter to the GetDevicePoolCompatibility API to pass in project information to check device pool compatibility.
+
+## __AWS Elemental MediaConvert__
+  - ### Features
+    - This release adds an optional sidecar per-frame video quality metrics report and an ALL_PCM option for audio selectors. It also changes the data type for Probe API response fields related to video and audio bitrate from integer to double.
+
+## __AWS SDK for Java v2__
+  - ### Features
+    - Updated endpoint and partition metadata.
+
+  - ### Bugfixes
+    - Allow default values for non-builtIn endpoint params
+
+## __Amazon DataZone__
+  - ### Features
+    - This release adds a new authorization policy to control the usage of custom AssetType when creating an Asset. Customer can now add new grant(s) of policyType USE_ASSET_TYPE for custom AssetTypes to apply authorization policy to projects members and domain unit owners.
+
+## __Amazon EC2 Container Service__
+  - ### Features
+    - Add support to roll back an In_Progress ECS Service Deployment
+
+## __Amazon Elastic Compute Cloud__
+  - ### Features
+    - This update introduces API operations to manage and create local gateway VIF and VIF groups. It also includes API operations to describe Outpost LAGs and service link VIFs.
+
+# __2.31.35__ __2025-05-02__
+## __AWS Directory Service__
+  - ### Features
+    - Doc only update - fixed typos.
+
+## __AWS SDK for Java V2__
+  - ### Bugfixes
+    - Add synchronization around use of JDT code formatter to prevent NPE/race condition during code generation.
+
+## __AWS SDK for Java v2__
+  - ### Features
+    - Updated endpoint and partition metadata.
+
+## __Amazon Kinesis__
+  - ### Features
+    - Marking ResourceARN as required for Amazon Kinesis Data Streams APIs TagResource, UntagResource, and ListTagsForResource.
+
+## __Data Automation for Amazon Bedrock__
+  - ### Features
+    - Added support for Custom output and blueprints for AUDIO data types.
+
+# __2.31.34__ __2025-05-01__
+## __AWS SDK for Java v2__
+  - ### Features
+    - Updated endpoint and partition metadata.
+
+## __Amazon AppConfig__
+  - ### Features
+    - Adding waiter support for deployments and environments; documentation updates
+
+## __Amazon Connect Service__
+  - ### Features
+    - This release adds the following fields to DescribeContact: DisconnectReason, AgentInitiatedHoldDuration, AfterContactWorkStartTimestamp, AfterContactWorkEndTimestamp, AfterContactWorkDuration, StateTransitions, Recordings, ContactDetails, ContactEvaluations, Attributes
+
+## __Amazon SageMaker Service__
+  - ### Features
+    - Feature - Adding support for Scheduled and Rolling Update Software in Sagemaker Hyperpod.
+
+## __Amazon Verified Permissions__
+  - ### Features
+    - Amazon Verified Permissions / Features : Adds support for tagging policy stores.
+
+# __2.31.33__ __2025-04-30__
+## __AWS Clean Rooms Service__
+  - ### Features
+    - This release adds support for ProtectedQuery results to be delivered to more than one collaboration member via the new distribute output configuration in StartProtectedQuery.
+
+## __AWS SDK for Java v2__
+  - ### Features
+    - Updated endpoint and partition metadata.
+
+## __AWSDeadlineCloud__
+  - ### Features
+    - Adds support for tag management on workers and tag inheritance from fleets to their associated workers.
+
+## __Agents for Amazon Bedrock__
+  - ### Features
+    - Features: Add inline code node to prompt flow
+
+## __Agents for Amazon Bedrock Runtime__
+  - ### Features
+    - Support for Custom Orchestration within InlineAgents
+
+## __Amazon Bedrock__
+  - ### Features
+    - You can now specify a cross region inference profile as a teacher model for the CreateModelCustomizationJob API. Additionally, the GetModelCustomizationJob API has been enhanced to return the sub-task statuses of a customization job within the StatusDetails response field.
+
+## __Amazon CloudWatch Logs__
+  - ### Features
+    - CloudWatch Logs supports "DELIVERY" log class. This log class is used only for delivering AWS Lambda logs to Amazon S3 or Amazon Data Firehose.
+
+## __Amazon Elastic Compute Cloud__
+  - ### Features
+    - Launch of cost distribution feature for IPAM owners to distribute costs to internal teams.
+
+## __Amazon Elastic Container Registry__
+  - ### Features
+    - Adds dualstack support for Amazon Elastic Container Registry (Amazon ECR).
+
+## __Amazon Elastic Container Registry Public__
+  - ### Features
+    - Adds dualstack support for Amazon Elastic Container Registry Public (Amazon ECR Public).
+
+## __MailManager__
+  - ### Features
+    - Introducing new RuleSet rule PublishToSns action, which allows customers to publish email notifications to an Amazon SNS topic. New PublishToSns action enables customers to easily integrate their email workflows via Amazon SNS, allowing them to notify other systems about important email events.
+
+# __2.31.32__ __2025-04-29__
+## __AWS SDK for Java v2__
+  - ### Features
+    - Updated endpoint and partition metadata.
+
+  - ### Bugfixes
+    - Fix timestamp unmarshalling off-by-one errors
+        - Contributed by: [@brandondahler](https://github.com/brandondahler)
+
+## __AWS SSM-GUIConnect__
+  - ### Features
+    - This release adds API support for the connection recording GUI Connect feature of AWS Systems Manager
+
+## __Amazon Connect Cases__
+  - ### Features
+    - Introduces CustomEntity as part of the UserUnion data type. This field is used to indicate the entity who is performing the API action.
+
+## __Amazon Kinesis__
+  - ### Features
+    - Amazon KDS now supports tagging and attribute-based access control (ABAC) for enhanced fan-out consumers.
+
+## __Amazon Pinpoint SMS Voice V2__
+  - ### Features
+    - AWS End User Messaging has added MONITOR and FILTER functionality to SMS Protect.
+
+## __Amazon SageMaker Metrics Service__
+  - ### Features
+    - SageMaker Metrics Service now supports FIPS endpoint in all US and Canada Commercial regions.
+
+## __Amazon SageMaker Service__
+  - ### Features
+    - Introduced support for P5en instance types on SageMaker Studio for JupyterLab and CodeEditor applications.
+
+## __Amazon Simple Storage Service__
+  - ### Features
+    - Added LegacyMd5Plugin to perform MD5 checksums for operations that require checksum
+
+## __Amazon Simple Systems Manager (SSM)__
+  - ### Features
+    - This release adds support for just-In-time node access in AWS Systems Manager. Just-in-time node access enables customers to move towards zero standing privileges by requiring operators to request access and obtain approval before remotely connecting to nodes managed by the SSM Agent.
+
+## __QBusiness__
+  - ### Features
+    - Add support for anonymous user access for Q Business applications
+
+## __Contributors__
+Special thanks to the following contributors to this release: 
+
+[@brandondahler](https://github.com/brandondahler)
+# __2.31.31__ __2025-04-28__
+## __AWS Certificate Manager__
+  - ### Features
+    - Add support for file-based HTTP domain control validation, available through Amazon CloudFront.
+
+## __AWS SDK for Java v2__
+  - ### Features
+    - Updated endpoint and partition metadata.
+
+## __Amazon Bedrock Runtime__
+  - ### Features
+    - This release adds native h2 support for the bedrock runtime API, the support is only limited to SDKs that support h2 requests natively.
+
+## __Amazon CloudFront__
+  - ### Features
+    - Add distribution tenant, connection group, and multi-tenant distribution APIs to the CloudFront SDK.
+
+## __Amazon DynamoDB__
+  - ### Features
+    - Doc only update for GSI descriptions.
+
+## __EC2 Image Builder__
+  - ### Features
+    - Add integration with SSM Parameter Store to Image Builder.
+
+# __2.31.30__ __2025-04-25__
+## __AWS Marketplace Deployment Service__
+  - ### Features
+    - Doc only update for the AWS Marketplace Deployment Service that fixes several customer-reported issues.
+
+## __AWS SDK for Java v2__
+  - ### Features
+    - Updated endpoint and partition metadata.
+
+## __Amazon Bedrock Runtime__
+  - ### Features
+    - You can now reference images and documents stored in Amazon S3 when using InvokeModel and Converse APIs with Amazon Nova Lite and Nova Pro. This enables direct integration of S3-stored multimedia assets in your model requests without manual downloading or base64 encoding.
+
+## __Amazon EC2 Container Service__
+  - ### Features
+    - Documentation only release for Amazon ECS.
+
+# __2.31.29__ __2025-04-24__
+## __AWS App Runner__
+  - ### Features
+    - AWS App Runner adds Node.js 22 runtime.
+
+## __AWS AppSync__
+  - ### Features
+    - Add data source support to Event APIs
+
+## __AWS CodeBuild__
+  - ### Features
+    - Remove redundant validation check.
+
+## __AWS Parallel Computing Service__
+  - ### Features
+    - Documentation-only update: added valid values for the version property of the Scheduler and SchedulerRequest data types.
+
+## __Amazon DynamoDB__
+  - ### Features
+    - Add support for ARN-sourced account endpoint generation for TransactWriteItems. This will generate account endpoints for DynamoDB TransactWriteItems requests using ARN-sourced account ID when available.
+
+## __Amazon EC2 Container Service__
+  - ### Features
+    - Documentation only release for Amazon ECS
+
+## __Amazon Relational Database Service__
+  - ### Features
+    - This Amazon RDS release adds support for managed master user passwords for Oracle CDBs.
+
+## __Data Automation for Amazon Bedrock__
+  - ### Features
+    - Added support for modality routing and modality enablement on CreateDataAutomationProject and UpdateDataAutomationProject APIs
+
+# __2.31.28__ __2025-04-23__
+## __AWS CodeBuild__
+  - ### Features
+    - Add support for custom instance type for reserved capacity fleets
+
+## __AWS Resource Explorer__
+  - ### Features
+    - Documentation-only update for CreateView option correction
+
+## __AWS SDK for Java v2__
+  - ### Features
+    - Updated endpoint and partition metadata.
+
+## __Amazon EC2 Container Service__
+  - ### Features
+    - Add support to roll back an In_Progress ECS Service Deployment
+
 # __2.31.27__ __2025-04-22__
 ## __AWS Account__
   - ### Features

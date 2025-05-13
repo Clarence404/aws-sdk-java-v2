@@ -30,6 +30,7 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.utils.Logger;
 import software.amazon.awssdk.utils.uri.SdkURI;
+import software.amazon.awssdk.utils.uri.SdkUri;
 
 /**
  *
@@ -37,7 +38,7 @@ import software.amazon.awssdk.utils.uri.SdkURI;
 @BenchmarkMode(Mode.All)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 @State(Scope.Benchmark)
-@Fork(value = 2)
+@Fork(value = 3)
 @Warmup(iterations = 2, time = 15)
 @Measurement(iterations = 5, time = 10)
 @Threads(25)
@@ -66,11 +67,11 @@ public class AccountIdEndpointCacheBenchmark {
         public void setup() {
 
             if (DISABLED_ACCOUNT_ID_CACHE.equals(accountIdCache)) {
-                SdkURI.getInstance().setBackdoorDisable(true);
+                SdkUri.getInstance().setBackdoorDisable(true);
             }
 
             if (ENABLED_ACCOUNT_ID_CACHE.equals(accountIdCache)) {
-                SdkURI.getInstance().setBackdoorDisable(false);
+                SdkUri.getInstance().setBackdoorDisable(false);
             }
 
             AccountIdEndpointMode mode = ACCOUNT_ID_ENDPOINT_MODE.equals(endpointMode)
