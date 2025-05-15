@@ -21,6 +21,7 @@ import java.util.Objects;
 import software.amazon.awssdk.annotations.SdkProtectedApi;
 import software.amazon.awssdk.utils.Lazy;
 import software.amazon.awssdk.utils.Logger;
+import software.amazon.awssdk.utils.cache.BoundedCache;
 import software.amazon.awssdk.utils.cache.lru.LruCache;
 import software.amazon.awssdk.utils.uri.internal.UriConstructorArgs;
 
@@ -44,12 +45,55 @@ public final class SdkUri {
 
     private static final Lazy<SdkUri> INSTANCE = new Lazy<>(SdkUri::new);
 
-    private final LruCache<UriConstructorArgs, URI> cache;
+    private final CacheAdapter cache;
 
     private SdkUri() {
-        this.cache = LruCache.builder(UriConstructorArgs::newInstance)
-                            .maxSize(CACHE_SIZE)
-                            .build();
+        String cacheType = System.getProperty("cache.type");
+        if (cacheType == null || "lru".equals(cacheType)) {
+            log.info(() -> "Using LRU cache");
+            LruCache<UriConstructorArgs, URI> delegate = LruCache.builder(UriConstructorArgs::newInstance)
+                                                                 .maxSize(CACHE_SIZE)
+                                                                 .build();
+            this.cache = new CacheAdapter() {
+                @Override
+                public URI get(UriConstructorArgs args) {
+                    return delegate.get(args);
+                }
+
+                @Override
+                public boolean containsKey(UriConstructorArgs args) {
+                    return delegate.containsKey(args);
+                }
+
+                @Override
+                public int size() {
+                    return delegate.size();
+                }
+            };
+        } else if ("bounded".equals(cacheType)) {
+            log.info(() -> "Using BoundedCache cache");
+            BoundedCache<UriConstructorArgs, URI> delegate = BoundedCache.builder(UriConstructorArgs::newInstance)
+                                                                         .maxSize(CACHE_SIZE)
+                                                                         .build();
+            this.cache = new CacheAdapter() {
+                @Override
+                public URI get(UriConstructorArgs args) {
+                    return delegate.get(args);
+                }
+
+                @Override
+                public boolean containsKey(UriConstructorArgs args) {
+                    return delegate.containsKey(args);
+                }
+
+                @Override
+                public int size() {
+                    return delegate.size();
+                }
+            };
+        } else {
+            throw new IllegalArgumentException(String.format("Unknown cache.type '%s' system property", cacheType));
+        }
     }
 
     public static SdkUri getInstance() {
@@ -160,6 +204,12 @@ public final class SdkUri {
         } else {
             log.trace(() -> "Cache empty for " + uri.toString());
         }
+    }
+
+    private interface CacheAdapter {
+        URI get(UriConstructorArgs args);
+        boolean containsKey(UriConstructorArgs args);
+        int size();
     }
 
     private static final class StringConstructorArgs implements UriConstructorArgs {
