@@ -5,12 +5,11 @@ permissions:
   pull-requests: read
 
 on:
+  merge_group:
   pull_request:
     types: [ opened, synchronize, reopened, labeled, unlabeled ]
     branches:
       - master
-    paths:
-      - '**/*.java'   
 
 jobs:
   api-surface-area-review-verification:

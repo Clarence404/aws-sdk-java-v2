@@ -50,6 +50,7 @@ import software.amazon.awssdk.protocols.core.ExceptionMetadata;
 import software.amazon.awssdk.protocols.xml.AwsXmlProtocolFactory;
 import software.amazon.awssdk.protocols.xml.XmlOperationMetadata;
 import software.amazon.awssdk.retries.api.RetryStrategy;
+import software.amazon.awssdk.services.xml.internal.ServiceVersionInfo;
 import software.amazon.awssdk.services.xml.internal.XmlServiceClientConfigurationBuilder;
 import software.amazon.awssdk.services.xml.model.APostOperationRequest;
 import software.amazon.awssdk.services.xml.model.APostOperationResponse;
@@ -114,7 +115,8 @@ final class DefaultXmlAsyncClient implements XmlAsyncClient {
 
     protected DefaultXmlAsyncClient(SdkClientConfiguration clientConfiguration) {
         this.clientHandler = new AwsAsyncClientHandler(clientConfiguration);
-        this.clientConfiguration = clientConfiguration.toBuilder().option(SdkClientOption.SDK_CLIENT, this).build();
+        this.clientConfiguration = clientConfiguration.toBuilder().option(SdkClientOption.SDK_CLIENT, this)
+                                                      .option(SdkClientOption.API_METADATA, "Xml_Service" + "#" + ServiceVersionInfo.VERSION).build();
         this.protocolFactory = init();
         this.executor = clientConfiguration.option(SdkAdvancedAsyncClientOption.FUTURE_COMPLETION_EXECUTOR);
     }
@@ -923,10 +925,10 @@ final class DefaultXmlAsyncClient implements XmlAsyncClient {
 
     private SdkClientConfiguration updateSdkClientConfiguration(SdkRequest request, SdkClientConfiguration clientConfiguration) {
         List<SdkPlugin> plugins = request.overrideConfiguration().map(c -> c.plugins()).orElse(Collections.emptyList());
-        SdkClientConfiguration.Builder configuration = clientConfiguration.toBuilder();
         if (plugins.isEmpty()) {
-            return configuration.build();
+            return clientConfiguration;
         }
+        SdkClientConfiguration.Builder configuration = clientConfiguration.toBuilder();
         XmlServiceClientConfigurationBuilder serviceConfigBuilder = new XmlServiceClientConfigurationBuilder(configuration);
         for (SdkPlugin plugin : plugins) {
             plugin.configureClient(serviceConfigBuilder);

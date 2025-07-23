@@ -45,6 +45,7 @@ import software.amazon.awssdk.protocols.core.ExceptionMetadata;
 import software.amazon.awssdk.protocols.query.AwsQueryProtocolFactory;
 import software.amazon.awssdk.retries.api.RetryStrategy;
 import software.amazon.awssdk.services.query.internal.QueryServiceClientConfigurationBuilder;
+import software.amazon.awssdk.services.query.internal.ServiceVersionInfo;
 import software.amazon.awssdk.services.query.model.APostOperationRequest;
 import software.amazon.awssdk.services.query.model.APostOperationResponse;
 import software.amazon.awssdk.services.query.model.APostOperationWithOutputRequest;
@@ -122,7 +123,8 @@ final class DefaultQueryAsyncClient implements QueryAsyncClient {
 
     protected DefaultQueryAsyncClient(SdkClientConfiguration clientConfiguration) {
         this.clientHandler = new AwsAsyncClientHandler(clientConfiguration);
-        this.clientConfiguration = clientConfiguration.toBuilder().option(SdkClientOption.SDK_CLIENT, this).build();
+        this.clientConfiguration = clientConfiguration.toBuilder().option(SdkClientOption.SDK_CLIENT, this)
+                                                      .option(SdkClientOption.API_METADATA, "Query_Service" + "#" + ServiceVersionInfo.VERSION).build();
         this.protocolFactory = init();
         this.executorService = clientConfiguration.option(SdkClientOption.SCHEDULED_EXECUTOR_SERVICE);
     }
@@ -1203,10 +1205,10 @@ final class DefaultQueryAsyncClient implements QueryAsyncClient {
 
     private SdkClientConfiguration updateSdkClientConfiguration(SdkRequest request, SdkClientConfiguration clientConfiguration) {
         List<SdkPlugin> plugins = request.overrideConfiguration().map(c -> c.plugins()).orElse(Collections.emptyList());
-        SdkClientConfiguration.Builder configuration = clientConfiguration.toBuilder();
         if (plugins.isEmpty()) {
-            return configuration.build();
+            return clientConfiguration;
         }
+        SdkClientConfiguration.Builder configuration = clientConfiguration.toBuilder();
         QueryServiceClientConfigurationBuilder serviceConfigBuilder = new QueryServiceClientConfigurationBuilder(configuration);
         for (SdkPlugin plugin : plugins) {
             plugin.configureClient(serviceConfigBuilder);
