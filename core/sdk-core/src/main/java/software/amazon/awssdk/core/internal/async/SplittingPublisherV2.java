@@ -25,10 +25,10 @@ import org.reactivestreams.Subscription;
 import software.amazon.awssdk.annotations.SdkInternalApi;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.core.async.AsyncRequestBodySplitConfiguration;
+import software.amazon.awssdk.core.async.AsyncRequestBodyWrapper;
 import software.amazon.awssdk.core.async.ClosableAsyncRequestBody;
 import software.amazon.awssdk.core.async.SdkPublisher;
 import software.amazon.awssdk.utils.Logger;
-import software.amazon.awssdk.utils.SdkAutoCloseable;
 import software.amazon.awssdk.utils.Validate;
 import software.amazon.awssdk.utils.async.SimplePublisher;
 
@@ -39,16 +39,17 @@ import software.amazon.awssdk.utils.async.SimplePublisher;
  * <p>Each {@link AsyncRequestBody} is sent after the entire content for that chunk is buffered.
  */
 @SdkInternalApi
-public class SplittingPublisher implements SdkPublisher<ClosableAsyncRequestBody> {
-    private static final Logger log = Logger.loggerFor(SplittingPublisher.class);
+public class SplittingPublisherV2 implements SdkPublisher<AsyncRequestBodyWrapper> {
+    private static final Logger log = Logger.loggerFor(SplittingPublisherV2.class);
     private final AsyncRequestBody upstreamPublisher;
     private final SplittingSubscriber splittingSubscriber;
-    private final SimplePublisher<ClosableAsyncRequestBody> downstreamPublisher = new SimplePublisher<>();
+    private final SimplePublisher<AsyncRequestBodyWrapper> downstreamPublisher = new SimplePublisher<>();
     private final long chunkSizeInBytes;
     private final long bufferSizeInBytes;
+    private final AtomicBoolean currentBodySent = new AtomicBoolean(false);
 
-    public SplittingPublisher(AsyncRequestBody asyncRequestBody,
-                              AsyncRequestBodySplitConfiguration splitConfiguration) {
+    public SplittingPublisherV2(AsyncRequestBody asyncRequestBody,
+                                AsyncRequestBodySplitConfiguration splitConfiguration) {
         this.upstreamPublisher = Validate.paramNotNull(asyncRequestBody, "asyncRequestBody");
         Validate.notNull(splitConfiguration, "splitConfiguration");
         this.chunkSizeInBytes = splitConfiguration.chunkSizeInBytes() == null ?
@@ -69,7 +70,7 @@ public class SplittingPublisher implements SdkPublisher<ClosableAsyncRequestBody
     }
 
     @Override
-    public void subscribe(Subscriber<? super ClosableAsyncRequestBody> downstreamSubscriber) {
+    public void subscribe(Subscriber<? super AsyncRequestBodyWrapper> downstreamSubscriber) {
         downstreamPublisher.subscribe(downstreamSubscriber);
         upstreamPublisher.subscribe(splittingSubscriber);
     }
@@ -81,7 +82,6 @@ public class SplittingPublisher implements SdkPublisher<ClosableAsyncRequestBody
         private volatile DownstreamBody currentBody;
         private final AtomicBoolean hasOpenUpstreamDemand = new AtomicBoolean(false);
         private final AtomicLong dataBuffered = new AtomicLong(0);
-        private final AtomicBoolean currentBodySent = new AtomicBoolean(false);
 
         /**
          * A hint to determine whether we will exceed maxMemoryUsage by the next OnNext call.
@@ -105,6 +105,7 @@ public class SplittingPublisher implements SdkPublisher<ClosableAsyncRequestBody
 
         private DownstreamBody initializeNextDownstreamBody(boolean contentLengthKnown, long chunkSize, int chunkNumber) {
             currentBodySent.set(false);
+            log.debug(() -> "initializing next downstream body " + chunkNumber);
             return new DownstreamBody(contentLengthKnown, chunkSize, chunkNumber);
         }
 
@@ -182,8 +183,10 @@ public class SplittingPublisher implements SdkPublisher<ClosableAsyncRequestBody
         private void completeCurrentBody() {
             if (currentBodySent.compareAndSet(false, true)) {
                 log.debug(() -> "completeCurrentBody for chunk " + currentBody.chunkNumber);
-                currentBody.complete();
-                sendCurrentBody(currentBody);
+                if (currentBody.bufferedLength > 0) {
+                    currentBody.complete();
+                    sendCurrentBody(currentBody);
+                }
             }
         }
 
@@ -202,7 +205,9 @@ public class SplittingPublisher implements SdkPublisher<ClosableAsyncRequestBody
         }
 
         private void sendCurrentBody(ClosableAsyncRequestBody body) {
-            downstreamPublisher.send(body).exceptionally(t -> {
+            AsyncRequestBodyWrapper wrapper = new AsyncRequestBodyWrapper(body, () -> body.close());
+
+            downstreamPublisher.send(wrapper).exceptionally(t -> {
                 downstreamPublisher.error(t);
                 upstreamSubscription.cancel();
                 return null;
@@ -285,12 +290,6 @@ public class SplittingPublisher implements SdkPublisher<ClosableAsyncRequestBody
             @Override
             public void subscribe(Subscriber<? super ByteBuffer> s) {
                 log.debug(() -> "Subscribe for chunk number: " + chunkNumber + " length " + bufferedLength);
-                // delegate
-                //     .doAfterOnComplete(() -> {
-                //     log.debug(() -> "Downstream complete for chunk " + chunkNumber);
-                //     delegate.close();
-                //     addDataBuffered(-bufferedLength);
-                // })
                 delegate.subscribe(s);
             }
 

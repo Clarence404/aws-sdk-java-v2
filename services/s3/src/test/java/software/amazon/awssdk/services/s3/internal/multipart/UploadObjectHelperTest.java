@@ -255,7 +255,7 @@ public class UploadObjectHelperTest {
     }
 
     @Test
-    void upload_knownContentLengthCancelResponseFuture_shouldCancelUploadPart() {
+    void upload_knownContentLengthCancelResponseFuture_shouldCancelUploadPart() throws InterruptedException {
         PutObjectRequest putObjectRequest = putObjectRequest(null);
 
         CompletableFuture<CreateMultipartUploadResponse> createMultipartFuture = new CompletableFuture<>();
@@ -267,12 +267,15 @@ public class UploadObjectHelperTest {
         when(s3AsyncClient.uploadPart(any(UploadPartRequest.class),
                                       any(AsyncRequestBody.class))).thenReturn(ongoingRequest);
 
+        AsyncRequestBody asyncRequestBody = AsyncRequestBody.fromFile(testFile);
+
         CompletableFuture<PutObjectResponse> future =
-            uploadHelper.uploadObject(putObjectRequest, AsyncRequestBody.fromFile(testFile));
+            uploadHelper.uploadObject(putObjectRequest, asyncRequestBody);
 
         when(s3AsyncClient.abortMultipartUpload(any(AbortMultipartUploadRequest.class)))
             .thenReturn(CompletableFuture.completedFuture(AbortMultipartUploadResponse.builder().build()));
 
+        Thread.sleep(1000);
         future.cancel(true);
 
         try {

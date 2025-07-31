@@ -31,7 +31,10 @@ import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 import software.amazon.awssdk.annotations.SdkInternalApi;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
+import software.amazon.awssdk.core.async.AsyncRequestBodyWrapper;
+import software.amazon.awssdk.core.async.ClosableAsyncRequestBody;
 import software.amazon.awssdk.core.async.listener.PublisherListener;
+import software.amazon.awssdk.core.internal.async.BufferingAsyncRequestBody;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadResponse;
 import software.amazon.awssdk.services.s3.model.CompletedPart;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
@@ -41,9 +44,10 @@ import software.amazon.awssdk.services.s3.multipart.S3ResumeToken;
 import software.amazon.awssdk.utils.Logger;
 import software.amazon.awssdk.utils.NumericUtils;
 import software.amazon.awssdk.utils.Pair;
+import software.amazon.awssdk.utils.SdkAutoCloseable;
 
 @SdkInternalApi
-public class KnownContentLengthAsyncRequestBodySubscriber implements Subscriber<AsyncRequestBody>  {
+public class KnownContentLengthAsyncRequestBodySubscriber implements Subscriber<AsyncRequestBodyWrapper>  {
 
     private static final Logger log = Logger.loggerFor(KnownContentLengthAsyncRequestBodySubscriber.class);
 
@@ -132,28 +136,31 @@ public class KnownContentLengthAsyncRequestBodySubscriber implements Subscriber<
             return;
         }
         this.subscription = s;
-        s.request(1);
         returnFuture.whenComplete((r, t) -> {
             if (t != null) {
+                log.debug(() -> "cancelling future ");
                 s.cancel();
                 if (shouldFailRequest()) {
                     multipartUploadHelper.failRequestsElegantly(futures, t, uploadId, returnFuture, putObjectRequest);
                 }
             }
         });
+        s.request(1);
     }
 
     @Override
-    public void onNext(AsyncRequestBody asyncRequestBody) {
+    public void onNext(AsyncRequestBodyWrapper asyncRequestBodyWrapper) {
         if (isPaused) {
             return;
         }
 
+        AsyncRequestBody asyncRequestBody = asyncRequestBodyWrapper.requestBody();
         if (existingParts.containsKey(partNumber.get())) {
             partNumber.getAndIncrement();
             asyncRequestBody.subscribe(new CancelledSubscriber<>());
-            subscription.request(1);
+            asyncRequestBodyWrapper.close();
             asyncRequestBody.contentLength().ifPresent(progressListener::subscriberOnNext);
+            subscription.request(1);
             return;
         }
 
@@ -171,12 +178,16 @@ public class KnownContentLengthAsyncRequestBodySubscriber implements Subscriber<
                                      if (shouldFailRequest()) {
                                          multipartUploadHelper.failRequestsElegantly(futures, t, uploadId, returnFuture,
                                                                                      putObjectRequest);
+                                         subscription.cancel();
                                      }
                                  } else {
+                                     asyncRequestBodyWrapper.close();
                                      completeMultipartUploadIfFinished(asyncRequestBodyInFlight.decrementAndGet());
                                  }
                              });
-        subscription.request(1);
+        synchronized (subscription) {
+            subscription.request(1);
+        };
     }
 
     private boolean shouldFailRequest() {

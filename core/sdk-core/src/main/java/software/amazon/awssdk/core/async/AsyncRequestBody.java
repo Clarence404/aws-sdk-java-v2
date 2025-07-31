@@ -36,6 +36,7 @@ import software.amazon.awssdk.core.internal.async.ByteBuffersAsyncRequestBody;
 import software.amazon.awssdk.core.internal.async.FileAsyncRequestBody;
 import software.amazon.awssdk.core.internal.async.InputStreamWithExecutorAsyncRequestBody;
 import software.amazon.awssdk.core.internal.async.SplittingPublisher;
+import software.amazon.awssdk.core.internal.async.SplittingPublisherV2;
 import software.amazon.awssdk.core.internal.util.Mimetype;
 import software.amazon.awssdk.utils.BinaryUtils;
 import software.amazon.awssdk.utils.Validate;
@@ -518,7 +519,13 @@ public interface AsyncRequestBody extends SdkPublisher<ByteBuffer> {
     default SdkPublisher<AsyncRequestBody> split(AsyncRequestBodySplitConfiguration splitConfiguration) {
         Validate.notNull(splitConfiguration, "splitConfiguration");
 
-        return new SplittingPublisher(this, splitConfiguration);
+        return splitV2(splitConfiguration).map(a -> a.requestBody());
+    }
+
+    default SdkPublisher<AsyncRequestBodyWrapper> splitV2(AsyncRequestBodySplitConfiguration splitConfiguration) {
+        Validate.notNull(splitConfiguration, "splitConfiguration");
+
+        return new SplittingPublisherV2(this, splitConfiguration);
     }
 
     /**
@@ -530,6 +537,11 @@ public interface AsyncRequestBody extends SdkPublisher<ByteBuffer> {
     default SdkPublisher<AsyncRequestBody> split(Consumer<AsyncRequestBodySplitConfiguration.Builder> splitConfiguration) {
         Validate.notNull(splitConfiguration, "splitConfiguration");
         return split(AsyncRequestBodySplitConfiguration.builder().applyMutation(splitConfiguration).build());
+    }
+
+    default SdkPublisher<AsyncRequestBodyWrapper> splitV2(Consumer<AsyncRequestBodySplitConfiguration.Builder> splitConfiguration) {
+        Validate.notNull(splitConfiguration, "splitConfiguration");
+        return splitV2(AsyncRequestBodySplitConfiguration.builder().applyMutation(splitConfiguration).build());
     }
 
     @SdkProtectedApi

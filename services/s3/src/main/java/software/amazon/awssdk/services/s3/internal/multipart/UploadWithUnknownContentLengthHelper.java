@@ -31,6 +31,7 @@ import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 import software.amazon.awssdk.annotations.SdkInternalApi;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
+import software.amazon.awssdk.core.async.AsyncRequestBodyWrapper;
 import software.amazon.awssdk.core.async.SdkPublisher;
 import software.amazon.awssdk.core.async.listener.PublisherListener;
 import software.amazon.awssdk.core.exception.SdkClientException;
@@ -79,8 +80,8 @@ public final class UploadWithUnknownContentLengthHelper {
                                                              AsyncRequestBody asyncRequestBody) {
         CompletableFuture<PutObjectResponse> returnFuture = new CompletableFuture<>();
 
-        SdkPublisher<AsyncRequestBody> splitAsyncRequestBodyResponse =
-            asyncRequestBody.split(b -> b.chunkSizeInBytes(partSizeInBytes)
+        SdkPublisher<AsyncRequestBodyWrapper> splitAsyncRequestBodyResponse =
+            asyncRequestBody.splitV2(b -> b.chunkSizeInBytes(partSizeInBytes)
                                          .bufferSizeInBytes(maxMemoryUsageInBytes));
 
         splitAsyncRequestBodyResponse.subscribe(new UnknownContentLengthAsyncRequestBodySubscriber(partSizeInBytes,
@@ -89,11 +90,7 @@ public final class UploadWithUnknownContentLengthHelper {
         return returnFuture;
     }
 
-    private class UnknownContentLengthAsyncRequestBodySubscriber implements Subscriber<AsyncRequestBody> {
-        /**
-         * Indicates whether this is the first async request body or not.
-         */
-        private final AtomicBoolean isFirstAsyncRequestBody = new AtomicBoolean(true);
+    private class UnknownContentLengthAsyncRequestBodySubscriber implements Subscriber<AsyncRequestBodyWrapper> {
 
         /**
          * Indicates whether CreateMultipartUpload has been initiated or not
@@ -125,7 +122,7 @@ public final class UploadWithUnknownContentLengthHelper {
         private final CompletableFuture<PutObjectResponse> returnFuture;
         private final PublisherListener<Long> progressListener;
         private Subscription subscription;
-        private AsyncRequestBody firstRequestBody;
+        private AsyncRequestBodyWrapper firstRequestBody;
 
         private String uploadId;
         private volatile boolean isDone;
@@ -149,28 +146,29 @@ public final class UploadWithUnknownContentLengthHelper {
                 return;
             }
             this.subscription = s;
-            s.request(1);
             returnFuture.whenComplete((r, t) -> {
                 if (t != null) {
                     s.cancel();
                     multipartUploadHelper.cancelingOtherOngoingRequests(futures, t);
                 }
             });
+            s.request(1);
         }
 
         @Override
-        public void onNext(AsyncRequestBody asyncRequestBody) {
+        public void onNext(AsyncRequestBodyWrapper asyncRequestBodyWrapper) {
             int currentPartNum = partNumber.incrementAndGet();
-            log.trace(() -> "Received asyncRequestBody " + asyncRequestBody.contentLength());
+            AsyncRequestBody asyncRequestBody = asyncRequestBodyWrapper.requestBody();
+            log.debug(() -> "Received asyncRequestBody " + asyncRequestBody.contentLength());
             asyncRequestBodyInFlight.incrementAndGet();
 
-            if (isFirstAsyncRequestBody.compareAndSet(true, false)) {
-                log.trace(() -> "Received first async request body");
-                // If this is the first AsyncRequestBody received, request another one because we don't know if there is more
-                firstRequestBody = asyncRequestBody;
-                subscription.request(1);
-                return;
-            }
+            // if (isFirstAsyncRequestBody.compareAndSet(true, false)) {
+            //     log.trace(() -> "Received first async request body");
+            //     // If this is the first AsyncRequestBody received, request another one because we don't know if there is more
+            //     firstRequestBody = asyncRequestBody;
+            //     subscription.request(1);
+            //     return;
+            // }
 
             // If there are more than 1 AsyncRequestBodies, then we know we need to upload this
             // object using MPU
@@ -188,24 +186,24 @@ public final class UploadWithUnknownContentLengthHelper {
                         uploadId = createMultipartUploadResponse.uploadId();
                         log.debug(() -> "Initiated a new multipart upload, uploadId: " + uploadId);
 
-                        sendUploadPartRequest(uploadId, firstRequestBody, 1);
-                        sendUploadPartRequest(uploadId, asyncRequestBody, 2);
+                        sendUploadPartRequest(uploadId, asyncRequestBodyWrapper, currentPartNum);
 
-                        // We need to complete the uploadIdFuture *after* the first two requests have been sent
+                        // We need to complete the uploadIdFuture *after* the first request has been sent
                         uploadIdFuture.complete(uploadId);
                     }
                 });
                 CompletableFutureUtils.forwardExceptionTo(returnFuture, createMultipartUploadFuture);
             } else {
                 uploadIdFuture.whenComplete((r, t) -> {
-                    sendUploadPartRequest(uploadId, asyncRequestBody, currentPartNum);
+                    sendUploadPartRequest(uploadId, asyncRequestBodyWrapper, currentPartNum);
                 });
             }
         }
 
         private void sendUploadPartRequest(String uploadId,
-                                           AsyncRequestBody asyncRequestBody,
+                                           AsyncRequestBodyWrapper asyncRequestBodyWrapper,
                                            int currentPartNum) {
+            AsyncRequestBody asyncRequestBody = asyncRequestBodyWrapper.requestBody();
             Optional<Long> contentLength = asyncRequestBody.contentLength();
             if (!contentLength.isPresent()) {
                 SdkClientException e = SdkClientException.create("Content length must be present on the AsyncRequestBody");
@@ -219,13 +217,15 @@ public final class UploadWithUnknownContentLengthHelper {
                 .whenComplete((r, t) -> {
                     if (t != null) {
                         if (failureActionInitiated.compareAndSet(false, true)) {
+                            subscription.cancel();
                             multipartUploadHelper.failRequestsElegantly(futures, t, uploadId, returnFuture, putObjectRequest);
                         }
                     } else {
+                        asyncRequestBodyWrapper.close();
                         completeMultipartUploadIfFinish(asyncRequestBodyInFlight.decrementAndGet());
                     }
                 });
-            synchronized (this) {
+            synchronized (subscription) {
                 subscription.request(1);
             };
         }
@@ -252,7 +252,7 @@ public final class UploadWithUnknownContentLengthHelper {
             // If CreateMultipartUpload has not been initiated at this point, we know this is a single object upload
             if (createMultipartUploadInitiated.get() == false) {
                 log.debug(() -> "Starting the upload as a single object upload request");
-                multipartUploadHelper.uploadInOneChunk(putObjectRequest, firstRequestBody, returnFuture);
+                multipartUploadHelper.uploadInOneChunk(putObjectRequest, firstRequestBody.requestBody(), returnFuture);
             } else {
                 isDone = true;
                 completeMultipartUploadIfFinish(asyncRequestBodyInFlight.get());
