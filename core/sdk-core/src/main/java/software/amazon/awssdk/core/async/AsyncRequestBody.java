@@ -514,7 +514,9 @@ public interface AsyncRequestBody extends SdkPublisher<ByteBuffer> {
      * interface overrides this method.
      *
      * @see AsyncRequestBodySplitConfiguration
+     * @deprecated Use {@link #splitV2(AsyncRequestBodySplitConfiguration)} instead.
      */
+    @Deprecated
     default SdkPublisher<AsyncRequestBody> split(AsyncRequestBodySplitConfiguration splitConfiguration) {
         Validate.notNull(splitConfiguration, "splitConfiguration");
 
@@ -522,14 +524,49 @@ public interface AsyncRequestBody extends SdkPublisher<ByteBuffer> {
     }
 
     /**
+     * Converts this {@link AsyncRequestBody} to a publisher of {@link AsyncRequestBodyWrapper}s, each of which wraps an
+     * {@link AsyncRequestBody} publishing specific portion of the original data, based on the provided
+     * {@link AsyncRequestBodySplitConfiguration}. The default chunk
+     * size is 2MB and the default buffer size is 8MB.
+     *
+     * <p>
+     * Each divided {@link AsyncRequestBody} is sent after the entire content for that chunk is buffered. In this case, the
+     * configured {@code maxMemoryUsageInBytes} must be larger than or equal to {@code chunkSizeInBytes}.
+     *
+     * <p>
+     * Note that this behavior may be different if a specific implementation of this interface overrides this method.
+     *
+     * @see AsyncRequestBodySplitConfiguration
+     * @see AsyncRequestBodyWrapper
+     */
+    default SdkPublisher<AsyncRequestBodyWrapper> splitV2(AsyncRequestBodySplitConfiguration splitConfiguration) {
+        Validate.notNull(splitConfiguration, "splitConfiguration");
+        throw new UnsupportedOperationException();
+    }
+
+    /**
      * This is a convenience method that passes an instance of the {@link AsyncRequestBodySplitConfiguration} builder,
      * avoiding the need to create one manually via {@link AsyncRequestBodySplitConfiguration#builder()}.
      *
      * @see #split(AsyncRequestBodySplitConfiguration)
+     * @deprecated Use {@link #splitV2(Consumer)} instead.
      */
+    @Deprecated
     default SdkPublisher<AsyncRequestBody> split(Consumer<AsyncRequestBodySplitConfiguration.Builder> splitConfiguration) {
         Validate.notNull(splitConfiguration, "splitConfiguration");
         return split(AsyncRequestBodySplitConfiguration.builder().applyMutation(splitConfiguration).build());
+    }
+
+    /**
+     * This is a convenience method that passes an instance of the {@link AsyncRequestBodySplitConfiguration} builder,
+     * avoiding the need to create one manually via {@link AsyncRequestBodySplitConfiguration#builder()}.
+     *
+     * @see #splitV2(Consumer)
+     */
+    default SdkPublisher<AsyncRequestBodyWrapper> splitV2(
+        Consumer<AsyncRequestBodySplitConfiguration.Builder> splitConfiguration) {
+        Validate.notNull(splitConfiguration, "splitConfiguration");
+        return splitV2(AsyncRequestBodySplitConfiguration.builder().applyMutation(splitConfiguration).build());
     }
 
     @SdkProtectedApi

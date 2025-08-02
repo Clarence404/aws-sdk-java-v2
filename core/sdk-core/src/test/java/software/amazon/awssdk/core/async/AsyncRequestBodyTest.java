@@ -356,4 +356,13 @@ public class AsyncRequestBodyTest {
         AsyncRequestBody requestBody = AsyncRequestBody.fromPublisher(bodyPublisher);
         assertEquals(Mimetype.MIMETYPE_OCTET_STREAM, requestBody.contentType());
     }
+
+    @Test
+    void splitV2_nullConfig_shouldThrowException() {
+        AsyncRequestBody  requestBody = AsyncRequestBody.fromString("hello world");
+        AsyncRequestBodySplitConfiguration config = null;
+        assertThatThrownBy(() -> requestBody.splitV2(config))
+            .isInstanceOf(NullPointerException.class)
+            .hasMessageContaining("splitConfig");
+    }
 }
